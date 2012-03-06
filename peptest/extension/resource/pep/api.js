@@ -47,6 +47,16 @@ const wm = Components.classes["@mozilla.org/appshell/window-mediator;1"]
                      .getService(Components.interfaces.nsIWindowMediator);
 const ios = Components.classes["@mozilla.org/network/io-service;1"]
                       .getService(Components.interfaces.nsIIOService);
+const profiler = Components.classes["@mozilla.org/tools/profiler;1"]
+                           .getService(Components.interfaces.nsIProfiler);
+
+function profiler_has_stackwalk() {
+    var hh = Components.classes["@mozilla.org/network/protocol;1?name=http"].getService(Components.interfaces.nsIHttpProtocolHandler);
+    var platform = hh["platform"];
+    if (platform != "Macintosh") return false;
+    var profilerFeatures = profiler.GetFeatures([]);
+    return profilerFeatures.indexOf("stackwalk") !== -1;
+}
 
 /**
  * This is the API exposed to tests
@@ -62,14 +72,53 @@ function PepAPI(test) {
                         .createInstance(Components.interfaces.nsILocalFile);
   this.file.initWithPath(this.test.path);
 }
+
 /**
  * Performs an action during which responsiveness is measured
  */
 PepAPI.prototype.performAction = function(actionName, func) {
+  // initialize profiler
+  let entries = get_pref_int("profiler.", "entries");
+  let interval = get_pref_int("profiler.", "interval");
+  let walkStack = get_pref_bool("profiler.", "walkstack");
+  
+  let out = {value:null};
+  profiler.GetFeatures(out);
+  let features = out.value; 
+
+  try { // Trunk StartProfiler signature
+    profiler.StartProfiler(entries, interval);
+  } catch (e) { // Feature based signature that hasn't landed yet
+    var selectedFeatures = [];
+    if (profiler_has_stackwalk()) {
+      selectedFeatures.push("stackwalk");
+    }
+    profiler.StartProfiler(entries, interval, selectedFeatures,
+                           selectedFeatures.length);
+  }
+  if (walkStack && features.indexOf("SPS_WALK_STACK") != -1) {
+    log.info('stack walker enabled');
+    profiler.EnableFeature("SPS_WALK_STACK");
+  }
+
   this.resultHandler.startAction(actionName);
   func();
   this.resultHandler.endAction();
+
+  // stop profiler
+  if (profiler.IsActive()) {
+    let data = {value:null};
+    profile = profiler.GetProfile(data);
+    let lines = profile.split('\n');
+    for (let i = 0; i < lines.length - 1; ++i) {
+      log.info('PROFILE | ' + lines[i]);
+    }
+    log.info('Stopping profiler');
+    profiler.StopProfiler();
+    log.info('Profiler stopped.');
+  }
 };
+
 /**
  * Returns the most recently used window of windowType
  */
@@ -79,6 +128,7 @@ PepAPI.prototype.getWindow = function(windowType) {
   }
   return wm.getMostRecentWindow(windowType);
 };
+
 /**
  * Load a file on the local filesystem
  * module - path on the local file of the module to load (no extension)
@@ -97,8 +147,8 @@ PepAPI.prototype.require = function(module) {
                // quick hack to keep backwards compatibility with mozmill 1.5.x
                elementslib: mozmill.findElement,
                findElement: mozmill.findElement,
-               persisted: {},
-             },
+               persisted: {}
+             }
   });
   return loader.require(module);
 };
@@ -128,3 +178,25 @@ Log.prototype.warning = function(msg) {
 Log.prototype.error = function(msg) {
   log.error(this.testName + ' | ' + msg);
 };
+
+
+function get_pref_int(branch, node) {
+    var prefs = Components.classes["@mozilla.org/preferences-service;1"]
+                    .getService(Components.interfaces.nsIPrefService).getBranch(branch);
+    
+    var value = prefs.getIntPref(node);
+    return value;
+}
+
+function get_pref_bool(branch, node, defaultValue) {
+    var prefs = Components.classes["@mozilla.org/preferences-service;1"]
+                    .getService(Components.interfaces.nsIPrefService).getBranch(branch);
+    try {
+        var value = prefs.getBoolPref(node);
+    } catch (e) {
+        if (defaultValue != null)
+            defaultValue = false;
+        return defaultValue;
+    }
+    return value;
+}

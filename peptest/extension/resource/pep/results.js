@@ -48,11 +48,11 @@ function ResultHandler(testName) {
 
 ResultHandler.prototype.startAction = function(actionName) {
   this.currentAction = {};
-  this.currentAction['test_name'] = this.testName
+  this.currentAction['test_name'] = this.testName;
   this.currentAction['action_name'] = actionName;
   this.currentAction['start_time'] = Date.now();
   log.log('ACTION-START', this.testName + ' ' + this.currentAction['action_name']);
-}
+};
 
 ResultHandler.prototype.endAction = function() {
   if (this.currentAction['start_time']) {
@@ -66,8 +66,8 @@ ResultHandler.prototype.endAction = function() {
     this.results.push(this.currentAction);
     log.log('ACTION-END', this.testName + ' ' + this.currentAction['action_name']);
   }
-}
+};
 
 ResultHandler.prototype.getResults = function() {
-  return this.results
-}
+  return this.results;
+};
