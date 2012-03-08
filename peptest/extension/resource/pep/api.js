@@ -63,8 +63,9 @@ function profiler_has_stackwalk() {
  * Any properties of this object will be injected into test scope
  * under the 'pep' namespace.
  */
-function PepAPI(test) {
+function PepAPI(test, options) {
   this.test = test;
+  this.options = options;
   this.log = new Log(this.test.name);
   this.resultHandler = new results.ResultHandler(this.test.name);
 
@@ -77,28 +78,30 @@ function PepAPI(test) {
  * Performs an action during which responsiveness is measured
  */
 PepAPI.prototype.performAction = function(actionName, func) {
-  // initialize profiler
-  let entries = get_pref_int("profiler.", "entries");
-  let interval = get_pref_int("profiler.", "interval");
-  let walkStack = get_pref_bool("profiler.", "walkstack");
-  
-  let out = {value:null};
-  profiler.GetFeatures(out);
-  let features = out.value; 
+  if (this.options.enableProfiler) {
+    // initialize profiler
+    let entries = get_pref_int("profiler.", "entries");
+    let interval = get_pref_int("profiler.", "interval");
+    let walkStack = get_pref_bool("profiler.", "walkstack");
 
-  try { // Trunk StartProfiler signature
-    profiler.StartProfiler(entries, interval);
-  } catch (e) { // Feature based signature that hasn't landed yet
-    var selectedFeatures = [];
-    if (profiler_has_stackwalk()) {
-      selectedFeatures.push("stackwalk");
+    let out = {value:null};
+    profiler.GetFeatures(out);
+    let features = out.value; 
+
+    try { // Trunk StartProfiler signature
+      profiler.StartProfiler(entries, interval);
+    } catch (e) { // Feature based signature that hasn't landed yet
+      var selectedFeatures = [];
+      if (profiler_has_stackwalk()) {
+        selectedFeatures.push("stackwalk");
+      }
+      profiler.StartProfiler(entries, interval, selectedFeatures,
+                             selectedFeatures.length);
     }
-    profiler.StartProfiler(entries, interval, selectedFeatures,
-                           selectedFeatures.length);
-  }
-  if (walkStack && features.indexOf("SPS_WALK_STACK") != -1) {
-    log.info('stack walker enabled');
-    profiler.EnableFeature("SPS_WALK_STACK");
+    if (walkStack && features.indexOf("SPS_WALK_STACK") != -1) {
+      log.info('stack walker enabled');
+      profiler.EnableFeature("SPS_WALK_STACK");
+    }
   }
 
   this.resultHandler.startAction(actionName);

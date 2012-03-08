@@ -51,6 +51,11 @@ import shutil
 import os
 import sys
 
+try:
+    import json
+except ImportError:
+    import simplejson as json
+
 results = Results()
 here = os.path.dirname(os.path.realpath(__file__))
 
@@ -109,10 +114,11 @@ class Peptest():
         # create a manifest object to be read by the JS side
         manifestObj = {}
         manifestObj['tests'] = tests
+        manifestObj['options'] = options.__dict__
 
         # write manifest to a JSON file
         jsonManifest = open(os.path.join(here, 'manifest.json'), 'w')
-        jsonManifest.write(str(manifestObj).replace("'", "\""))
+        jsonManifest.write(json.dumps(manifestObj))
         jsonManifest.close()
 
         # setup environment
