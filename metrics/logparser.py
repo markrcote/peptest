@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this file,
+# You can obtain one at http://mozilla.org/MPL/2.0/.
+
 import datetime
 import gzip
 import json
@@ -9,10 +13,21 @@ from collections import defaultdict
 class LogParser(object):
 
     failures = defaultdict(lambda: defaultdict(list))
-    failures_squared = defaultdict(lambda: defaultdict(list))
     passes = defaultdict(lambda: defaultdict(list))
-    info = {'platform': [], 'test': [], 'metric': ['sum', 'sum of squares']}
+    info = {'platform': [], 'test': []}
     results_filename = 'peptest-results.json'
+
+    def __init__(self, results_filename):
+        if results_filename:
+            self.results_filename = results_filename
+        if os.path.exists(self.results_filename):
+            data = json.loads(file(self.results_filename, 'r').read())
+            self.passes = data['passes']
+            self.failures = data['failures']
+            self.info = data['info']
+
+    def timestamp_from_buildid(self, buildid):
+        return int(time.mktime(datetime.datetime.strptime(buildid, '%Y%m%d%H%M%S').timetuple()))
 
     def parse_log(self, filename, buildid=''):
         print 'parsing %s' % filename
@@ -43,19 +58,16 @@ class LogParser(object):
             elif 'PEP TEST-PASS' in line:
                 parts = [x.strip() for x in line.split('|')]
                 testname = parts[1]
-                self.passes[buildos][testname] = buildid
+                self.passes[buildos][testname].append(self.timestamp_from_buildid(buildid))
         for testname, times in unresp_times.iteritems():
             if not testname in self.info['test']:
                 self.info['test'].append(testname)
-            d = int(time.mktime(datetime.datetime.strptime(buildid, '%Y%m%d%H%M%S').timetuple())) * 1000
-            self.failures[buildos][testname].append([d, sum(times)])
-            self.failures_squared[buildos][testname].append([d, sum([x*x/1000.0 for x in times])])
+            self.failures[buildos][testname].append([self.timestamp_from_buildid(buildid), sum([x*x/1000.0 for x in times])])
         if not buildos in self.info['platform']:
             self.info['platform'].append(buildos)
         file(self.results_filename, 'w').write(json.dumps({
                     'passes': self.passes,
-                    'failures': { 'sum': self.failures,
-                                  'sum of squares': self.failures_squared },
+                    'failures': self.failures,
                     'info': self.info }))
 
 if __name__ == '__main__':
