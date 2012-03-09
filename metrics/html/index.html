@@ -1,0 +1,66 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css"/>
+    <script src="scripts/jquery-1.7.1.min.js"></script>
+    <script src="scripts/SS.min.js"></script>
+    <script src="bootstrap/js/bootstrap.min.js"></script>
+    <script src="scripts/jquery.flot.min.js"></script>
+    <script src="scripts/jquery.flot.axislabels.js"></script>
+    <script src="scripts/ICanHaz.min.js"></script>
+    <script src="scripts/app.js"></script>
+    <title>peptest failures</title>
+    <style type="text/css">
+      #header {
+          padding: 10px 0 10px 0;
+      }
+      #plot {
+          width: 1000px;
+          height: 600px;
+      }
+    </style>
+</head>
+
+<body>
+
+<div class="container-fluid">
+  <div class="row" id="header">
+    <div class="span12"><h1>peptest failures</h1></div>
+  </div>
+  <div class="row-fluid">
+    <div class="span2">
+      <form name="controls" id="controls">
+        <select name="platform" id="platform">
+          <option value="">loading...</option>
+        </select>
+        <select name="test" id="test">
+          <option value="loading">loading...</option>
+        </select>
+        <select name="metric" id="metric">
+          <option value="loading">loading...</option>
+        </select>
+      </form>
+    </div>
+    <div class="span10"><div id="plot"></div></div>
+  </div>
+</div>
+
+<!--ICanHaz templates-->
+<script type="text/html" id="controlopt">
+  <option value="{{ value }}">{{ text }}</option>
+</script>
+
+<script type="text/html" id="nodata">
+  <div>no failures!</div>
+</script>
+<!--------------------->
+
+</body>
+
+<script>
+$(document).ready(main);
+</script>
+
+</html>
