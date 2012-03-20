@@ -16,7 +16,7 @@ function dateStr(d) {
 function showLineTooltip(x, y, timestamp, value) {
   var date = new Date(Math.floor(timestamp));
   var content = ich.flot_tooltip({ date: dateStr(date),
-                                   value: Math.ceil(value) });
+                                   value: value });
   $(content).css({
     top: y + 5,
     left: x + 5

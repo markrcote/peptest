@@ -8,7 +8,10 @@
 <head>
     <meta charset="utf-8">
     <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="style/Aristo/jquery-ui-1.8.7.custom.css"/>
+    <link rel="stylesheet" href="style/main.css"/>
     <script src="scripts/jquery-1.7.1.min.js"></script>
+    <script src="scripts/jquery-ui-1.8.13.custom.min.js"></script>
     <script src="scripts/SS.min.js"></script>
     <script src="bootstrap/js/bootstrap.min.js"></script>
     <script src="scripts/jquery.flot.min.js"></script>
@@ -17,28 +20,6 @@
     <script src="scripts/plot.js"></script>
     <script src="scripts/app.js"></script>
     <title>peptest results</title>
-    <style type="text/css">
-      body {
-        background-color: rgb(240, 240, 240);
-      }
-      #header {
-        padding: 10px 0 10px 0;
-      }
-      #info {
-        text-align: right;
-      }
-      #plot {
-        width: 1000px;
-        height: 600px;
-      }
-      .tooltip {
-        position: absolute;
-        border: 1px solid #fdd;
-        padding: 2px;
-        background-color: #fee;
-        opacity: 0.80;
-      }
-    </style>
 </head>
 
 <body>
@@ -51,11 +32,27 @@
   <div class="row-fluid">
     <div class="span2">
       <form name="controls" id="controls">
+        <select name="branch" id="branch">
+          <option value="">loading...</option>
+        </select>
         <select name="platform" id="platform">
           <option value="">loading...</option>
         </select>
         <select name="test" id="test">
           <option value="loading">loading...</option>
+        </select>
+      </form>
+      <form name="datecontrols" id="datecontrols">
+        Date range:
+        <input id="startdate" type="text" size="10" pattern="[\d]{4}-[\d]{2}-[\d]{2}" style="position:relative;right:0px"/><br/>
+        <input id="enddate" type="text" size="10" pattern="[\d]{4}-[\d]{2}-[\d]{2}" style="position:relative;right:0px"/><br/>
+        Or select recent period:
+        <select name="period" id="period">
+          <option value="0">---</option>
+          <option value="7">Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="60">Last 60 days</option>
         </select>
       </form>
     </div>
