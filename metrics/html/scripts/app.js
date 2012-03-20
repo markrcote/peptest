@@ -14,7 +14,7 @@ function loadOptions() {
   }
 }
 
-function online_variance(times) {
+function onlineVariance(times) {
   if (times === undefined) {
     return {};
   }
@@ -83,12 +83,14 @@ function makePlot(params) {
   }
   
   var colour = 0;
+  var failSeriesIndex = null, passSeriesIndex = null;
   var series = [];
   if (points.failures.length) {
     series.push({ data: points.failures,
                   label: 'failures',
                   color: colour,
                   points: { show: true } });
+    failSeriesIndex = series.length - 1;
   }
   colour++;
   if (points.passes.length) {
@@ -96,10 +98,11 @@ function makePlot(params) {
                   label: 'passes',
                   color: colour,
                   points: { show: true } });
+    passSeriesIndex = series.length - 1;
   }
   colour++;
   if (points.failures.length) {
-    var faildata = online_variance(points.failures);
+    var faildata = onlineVariance(points.failures);
     series.push({ data: [[points.firstPoint, faildata.mean],
                          [points.lastPoint, faildata.mean]],
                   label: 'mean failure (' + Math.ceil(faildata.mean) + ')',
@@ -129,9 +132,9 @@ function makePlot(params) {
     plotHover($('#plot'), function (item) {
       var x = item.datapoint[0].toFixed(2);
       var y;
-      if (item.seriesIndex == 0) {
+      if (item.seriesIndex === failSeriesIndex) {
         y = Math.ceil(item.datapoint[1]);
-      } else if (item.seriesIndex == 1) {
+      } else if (item.seriesIndex === passSeriesIndex) {
         y = 'pass';
       }
       showLineTooltip(item.pageX, item.pageY, x, y);
