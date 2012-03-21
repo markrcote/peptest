@@ -102,23 +102,48 @@ function makePlot(params) {
   }
   colour++;
   if (points.failures.length) {
-    var faildata = onlineVariance(points.failures);
-    series.push({ data: [[points.firstPoint, faildata.mean],
-                         [points.lastPoint, faildata.mean]],
-                  label: 'mean failure (' + Math.ceil(faildata.mean) + ')',
+    var windowLength = parseInt($('#meanwindow').attr('value'));
+    var mean = [], stddev_pos = [], stddev_neg = [], window = [], faildata;
+    if (!windowLength) {
+      faildata = onlineVariance(points.failures);
+      mean = [[points.failures[0][0], faildata.mean],
+              [points.failures[points.failures.length-1][0], faildata.mean]];
+      stddev_pos = [[points.failures[0][0], faildata.mean + faildata.stddev],
+                    [points.failures[points.failures.length-1][0],
+                     faildata.mean + faildata.stddev]];
+      stddev_neg = [[points.failures[0][0], faildata.mean - faildata.stddev],
+                    [points.failures[points.failures.length-1][0],
+                     faildata.mean - faildata.stddev]];
+    } else {
+      for (var i = 0; i < points.failures.length; i++) {
+        window.push(points.failures[i]);
+        if (window[window.length-1][0] - points.failures[0][0] <
+            1000*60*60*24*windowLength) {
+          continue;
+        }
+        while (window[window.length-1][0] - window[0][0] >
+               1000*60*60*24*windowLength) {
+          window.shift();
+        }
+        faildata = onlineVariance(window);
+        mean.push([window[window.length-1][0], faildata.mean]);
+        stddev_pos.push([window[window.length-1][0],
+                         faildata.mean + faildata.stddev]);
+        stddev_neg.push([window[window.length-1][0],
+                         faildata.mean - faildata.stddev]);
+      }
+    }
+    series.push({ data: mean,
+                  label: 'mean failure',
                   color: colour,
                   points: { show: false }, lines: { show: true } });
-    series.push({ data: [[points.firstPoint, faildata.mean + faildata.stddev],
-                         [points.lastPoint, faildata.mean + faildata.stddev]],
-                  label: 'failure std dev (' + Math.ceil(faildata.stddev) + ')',
+    series.push({ data: stddev_pos,
+                  label: 'failure std dev',
                   color: ++colour,
                   points: { show: false }, lines: { show: true } });
-    if ((faildata.mean - faildata.stddev) >= 0) {
-      series.push({ data: [[points.firstPoint, faildata.mean - faildata.stddev],
-                           [points.lastPoint, faildata.mean - faildata.stddev]],
-                    color: colour,
-                    points: { show: false }, lines: { show: true } });
-    }
+    series.push({ data: stddev_neg,
+                  color: colour,
+                  points: { show: false }, lines: { show: true } });
   }
   var yaxisLabel = 'sum of squares of unresponsive times in ms / 1000';
   $.plot($('#plot'), series, {
@@ -230,6 +255,8 @@ function main() {
 
   $('#startdate').change(function() { dateChanged(); loadGraph(); return false; });
   $('#enddate').change(function() { dateChanged(); loadGraph(); return false; });
+
+  $('#meanwindow').change(function() { loadGraph(); return false; });
 
   $.getJSON('peptest-results.json', function(d) {
     data = d;

@@ -43,9 +43,9 @@
         </select>
       </form>
       <form name="datecontrols" id="datecontrols">
-        Date range:
-        <input id="startdate" type="text" size="10" pattern="[\d]{4}-[\d]{2}-[\d]{2}" style="position:relative;right:0px"/><br/>
-        <input id="enddate" type="text" size="10" pattern="[\d]{4}-[\d]{2}-[\d]{2}" style="position:relative;right:0px"/><br/>
+        Date range:<br/>
+        <input id="startdate" type="text" size="10" pattern="[\d]{4}-[\d]{2}-[\d]{2}" /><br/>
+        <input id="enddate" type="text" size="10" pattern="[\d]{4}-[\d]{2}-[\d]{2}" /><br/>
         Or select recent period:
         <select name="period" id="period">
           <option value="0">---</option>
@@ -53,6 +53,14 @@
           <option value="14">Last 14 days</option>
           <option value="30">Last 30 days</option>
           <option value="60">Last 60 days</option>
+        </select>
+      </form>
+      <form name="graphcontrols" id="graphcontrols">
+        Calculate mean over <select name="meanwindow" id="meanwindow">
+          <option value="0">entire period</option>
+          <option value="1">1 day</option>
+          <option value="2">2 days</option>
+          <option value="7">7 days</option>
         </select>
       </form>
     </div>
