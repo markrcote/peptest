@@ -12,8 +12,8 @@ from collections import defaultdict
 
 class LogParser(object):
 
-    failures = defaultdict(lambda: defaultdict(list))
-    passes = defaultdict(lambda: defaultdict(list))
+    failures = {}
+    passes = {}
     info = {'platform': [], 'test': []}
     results_filename = 'peptest-results.json'
 
@@ -58,10 +58,18 @@ class LogParser(object):
             elif 'PEP TEST-PASS' in line:
                 parts = [x.strip() for x in line.split('|')]
                 testname = parts[1]
+                if not buildos in self.passes:
+                    self.passes[buildos] = {}
+                if not testname in self.passes[buildos]:
+                    self.passes[buildos][testname] = []
                 self.passes[buildos][testname].append(self.timestamp_from_buildid(buildid))
         for testname, times in unresp_times.iteritems():
             if not testname in self.info['test']:
                 self.info['test'].append(testname)
+            if not buildos in self.failures:
+                self.failures[buildos] = {}
+            if not testname in self.failures[buildos]:
+                self.failures[buildos][testname] = []
             self.failures[buildos][testname].append([self.timestamp_from_buildid(buildid), sum([x*x/1000.0 for x in times])])
         if not buildos in self.info['platform']:
             self.info['platform'].append(buildos)
