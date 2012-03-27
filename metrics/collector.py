@@ -18,10 +18,10 @@ from pulsebuildmonitor import start_pulse_monitor
 
 class Collector(object):
 
-    def __init__(self, results_filename):
+    def __init__(self, db_name, db_user, db_passwd):
         self.logs_dir = 'logs'
         self.l = threading.RLock()
-        self.lp = logparser.LogParser(results_filename)
+        self.lp = logparser.LogParser(db_name, db_user, db_passwd)
         try:
             os.mkdir(self.logs_dir)
         except OSError:
@@ -32,14 +32,19 @@ class Collector(object):
         buildid = data['buildid']
         buildos = data['os']
         test = data['test']
-        print 'test completed: %s on build %s, os %s' % (test, buildid, buildos)
+        branch = data['tree']
+        logging.debug('test completed: %s on build %s, branch %s, os %s' %
+                      (test, buildid, branch, buildos))
         if test == 'peptest':
             url = data['logurl']
-            print 'downloading %s' % url
+            logging.info('found peptest log: %s' % url)
+            logging.debug('downloading...')
             filename = os.path.basename(url)
             log_path = os.path.join(self.logs_dir, os.path.basename(url))
             urllib.urlretrieve(url, log_path)
+            logging.debug('parsing...')
             self.lp.parse_log(log_path, buildid)
+            logging.debug('cleaning up...')
             os.unlink(log_path)
         self.l.release()
 
@@ -50,20 +55,26 @@ def main():
     parser.add_option('-v', '--verbose', action='count', dest='verbosity',
                       default=0,
                       help='verbosity level; can be given multiple times')
-    parser.add_option('--results', type='string', dest='results', default='',
-                      help='path to JSON results file')
+    parser.add_option('--db-name', type='string', dest='db_name',
+                      default='peptest',
+                      help='database name (default: "peptest")')
+    parser.add_option('--db-user', type='string', dest='db_user',
+                      default='peptest',
+                      help='database user (default: "peptest")')
+    parser.add_option('--db-passwd', type='string', dest='db_passwd',
+                      default='peptest',
+                      help='database password (default: "peptest")')
     opts, args = parser.parse_args()
     if opts.verbosity == 0:
-        loglvl = logging.WARNING
-    elif opts.verbosity == 1:
         loglvl = logging.INFO
     else:
         loglvl = logging.DEBUG
     logging.basicConfig(level=loglvl)
     
     logging.info('Starting collector.')
-    collector = Collector(opts.results)
-    m = start_pulse_monitor(testCallback=collector.cb, trees=['try'],
+    collector = Collector(opts.db_name, opts.db_user, opts.db_passwd)
+    m = start_pulse_monitor(testCallback=collector.cb,
+                            trees=['try', 'mozilla-central', 'mozilla-inbound'],
                             logger=logging.getLogger(), buildtypes=['opt'])
     while True:
         try:

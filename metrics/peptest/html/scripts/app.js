@@ -2,14 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-function loadOptions() {
+function loadOptions(data) {
   var i;
-  for (option in data.info) {
+  for (option in data) {
     $('#controls select[name=' + option + ']').html('');
-    data.info[option].sort();
-    for (i = 0; i < data.info[option].length; i++) {
+    data[option].sort();
+    for (i = 0; i < data[option].length; i++) {
       $('#controls select[name=' + option + ']').append(
-        ich.controlopt({ value: data.info[option][i], text: data.info[option][i] }));
+        ich.controlopt({ value: data[option][i], text: data[option][i] }));
     }
   }
 }
@@ -34,49 +34,28 @@ function onlineVariance(times) {
   return { mean: mean, stddev: Math.sqrt(variance) };
 }
 
-function getDataPoints(params) {
-  var startDate = ISODate($('#startdate').attr('value')).getTime();
-  var endDate = ISODate($('#enddate').attr('value')).getTime();
-  var firstPoint = 0, lastPoint = 0;
-  var failurePoints = [];
-  if ((params.platform in data.failures) && (params.test in data.failures[params.platform])) {
-    failurePoints = data.failures[params.platform][params.test].filter(function(x) {
-      return x[0]*1000 >= startDate && x[0]*1000 <= endDate;
-    }).map(function(x) {
-      return [x[0]*1000, x[1]];
-    });
-  }
-  var passPoints = [];
-  if ((params.platform in data.passes) && (params.test in data.passes[params.platform])) {
-    passPoints = data.passes[params.platform][params.test].filter(function(x) {
-      return x*1000 >= startDate && x*1000 <= endDate;
-    }).map(function(x) { return [x*1000, 0]; });
-  }
-  failurePoints.sort(function(x, y) { return x[0] - y[0]; });
-  passPoints.sort(function(x, y) { return x[0] - y[0]; });
-
-  if (failurePoints.length) {
-    firstPoint = failurePoints[0][0];
-    lastPoint = failurePoints[failurePoints.length-1][0];
-  }
-  if (passPoints.length) {
-    if (firstPoint == 0 || passPoints[0][0] < firstPoint) {
-      firstPoint = passPoints[0][0];
-    }
-    if (lastPoint == 0 || passPoints[passPoints.length-1][0] > lastPoint) {
-      lastPoint = passPoints[passPoints.length-1][0];
-    }
-  }
-
+function getDataPoints(params, data) {
+  // set end date ahead one day so that we get all results from the given
+  // day (since no time implies midnight, the very beginning of the day).
+  var points = data.map(function(x) {
+    x.builddate = new Date(x.builddate).getTime();
+    return x;
+  });
+  points.sort(function(a, b) { return a.builddate - b.builddate; });
+  var firstPoint = points[0].date, lastPoint = points[points.length-1].date;
+  var failurePoints = points.filter(function(x) { return !x.pass; })
+                            .map(function(x) { return [x.builddate, x.metric]; });
+  var passPoints = points.filter(function(x) { return x.pass; })
+                         .map(function(x) { return [x.builddate, 0]; });
   return { failures: failurePoints,
            passes: passPoints,
            firstPoint: firstPoint,
            lastPoint: lastPoint };
 }
 
-function makePlot(params) {
+function makePlot(params, data) {
   $('#plot').html();
-  var points = getDataPoints(params);
+  var points = getDataPoints(params, data);
   if (!points.failures.length && !points.passes.length) {
     $('#plot').html(ich.nodata());
     return;
@@ -170,12 +149,14 @@ function makePlot(params) {
 function loadGraph() {
   var params = {};
   $.makeArray($('#controls select').each(function(i, e) { params[e.name] = e.value; }));
-  var hash = '#/try/' + params.platform + '/' + params.test + '/' +
-        $('#startdate').attr('value') + '/' + $('#enddate').attr('value');
+  var hash = '#/' + params.branch + '/' + params.platform + '/' + params.test +
+        '/' + $('#startdate').attr('value') + '/' + $('#enddate').attr('value');
   if (hash != document.location.hash) {
     document.location.hash = hash;
   }
-  makePlot(params);
+  $.getJSON('api/results/?branch=' + params.branch + '&platform=' + params.platform + '&test=' + params.test + '&start=' + $('#startdate').attr('value') + '&end=' + $('#enddate').attr('value'), function(data) {
+    makePlot(params, data);
+  });
 }
 
 function setControls(branch, platform, test, startdate, enddate) {
@@ -210,11 +191,6 @@ function ISODateString(d) {
          + pad(d.getUTCDate());
 }
 
-function ISODate(dateString) {
-  var parts = dateString.split('-');
-  return new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-}
-
 function periodChanged() {
   var endDate = new Date();
   $('#enddate').attr('value', ISODateString(endDate));
@@ -233,8 +209,6 @@ function dateChanged() {
   }
 }
 
-var data = {};
-
 function main() {
   // Configure date controls.
   $.datepicker.setDefaults({
@@ -246,11 +220,6 @@ function main() {
   $('#startdate').datepicker();
   $('#enddate').datepicker();
 
-  // branch hardcoded to try for now
-  $('#controls select[name=branch]').html('');
-  $('#controls select[name=branch]').append(ich.controlopt({ value: 'try',
-                                                             text: 'try' }));
-
   $('#period').change(function() { periodChanged(); loadGraph(); return false; });
 
   $('#startdate').change(function() { dateChanged(); loadGraph(); return false; });
@@ -258,11 +227,11 @@ function main() {
 
   $('#meanwindow').change(function() { loadGraph(); return false; });
 
-  $.getJSON('peptest-results.json', function(d) {
-    data = d;
-    loadOptions();
+  $.getJSON('api/info/', function(data) {
+    loadOptions(data);
     $('#controls').change(function() { loadGraph(); return false; });
     $('#controls').submit(function() { return false; });
+    // FIXME: is there a better way to set up routes with generic arguments?
     var router = Router({
       '/([^/]*)': {
         '/([^/]*)': {

@@ -22,3 +22,11 @@ body {
   background-color: #fee;
   opacity: 0.80;
 }
+
+input, textarea, select, .uneditable-input {
+  width: 170px;
+}
+
+input[type=text] {
+  width: 140px;
+}

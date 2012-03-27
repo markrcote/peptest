@@ -5,82 +5,87 @@
 import datetime
 import gzip
 import json
+import logging
 import os
 import re
 import time
+import MySQLdb
 from collections import defaultdict
 
 class LogParser(object):
 
-    failures = {}
-    passes = {}
-    info = {'platform': [], 'test': []}
-    results_filename = 'peptest-results.json'
-
-    def __init__(self, results_filename):
-        if results_filename:
-            self.results_filename = results_filename
-        if os.path.exists(self.results_filename):
-            data = json.loads(file(self.results_filename, 'r').read())
-            self.passes = data['passes']
-            self.failures = data['failures']
-            self.info = data['info']
+    def __init__(self, db_name, db_user, db_passwd):
+        self.db = MySQLdb.connect(user=db_user, passwd=db_passwd, db=db_name)
 
     def timestamp_from_buildid(self, buildid):
         return int(time.mktime(datetime.datetime.strptime(buildid, '%Y%m%d%H%M%S').timetuple()))
 
+    def add_result(self, branch, platform, test, buildid, is_pass, metric=0):
+        c = self.db.cursor()
+        if branch not in self.branches:
+            c.execute('insert into branch (name) values (%s)', [branch])
+            self.branches[branch] = c.lastrowid
+        if platform not in self.platforms:
+            c.execute('insert into platform (name) values (%s)', [platform])
+            self.platforms[platform] = c.lastrowid
+        if test not in self.tests:
+            c.execute('insert into test (name) values (%s)', [test])
+            self.tests[test] = c.lastrowid
+        c.execute('insert into result (branch_id, platform_id, test_id, builddate, pass, metric) values (%s, %s, %s, %s, %s, %s)',
+                  (self.branches[branch],
+                   self.platforms[platform],
+                   self.tests[test],
+                   datetime.datetime.strptime(buildid, '%Y%m%d%H%M%S'),
+                   int(is_pass),
+                   metric))
+        self.db.commit()
+
+    def build_cache(self):
+        c = self.db.cursor()
+        self.tests = {}
+        self.platforms = {}
+        self.branches = {}
+        for table, d in (('test', self.tests),
+                         ('platform', self.platforms),
+                         ('branch', self.branches)):
+            c.execute('select id, name from %s' % table)
+            for id, name in c.fetchall():
+                d[name] = id
+
     def parse_log(self, filename, buildid=''):
-        print 'parsing %s' % filename
-        m = re.match('try_([^_]+)_test', os.path.basename(filename))
-        buildos = m.group(1)
-        unresp_times = defaultdict(list)
+        logging.debug('parsing %s' % filename)
+        self.build_cache()
+        m = re.match('([^_]+)_(.+)_test', os.path.basename(filename))
+        branch = m.group(1)
+        platform = m.group(2)
         f = gzip.GzipFile(filename, 'r')
         for line in f:
             if not buildid:
                 m = re.match('buildid: ([\d]+)', line)
                 if m:
                     buildid = m.group(1)
-            if 'PEP WARNING' in line:
+                    logging.debug('build id %s on %s, os %s' % (buildid, branch, platform))
+            if 'PEP TEST-UNEXPECTED-FAIL' in line:
                 parts = [x.strip() for x in line.split('|')]
-                if len(parts) < 3:
-                    continue
-                testname = parts[1]
-                m = re.search('unresponsive time: ([\d]+) ms', parts[3])
-                if not m:
-                    print 'nope'
-                    continue
-                unresp_times[testname].append(int(m.group(1)))
-            elif 'PEP ERROR' in line:
-                parts = [x.strip() for x in line.split('|')]
-                testname = parts[1]
-                if testname in unresp_times:
-                    del unresp_times[testname]
+                test = parts[1]
+                m = re.search('metric: ([\d\.]*)', parts[2])
+                if m:
+                    metric = float(m.group(1))
+                    self.add_result(branch, platform, test, buildid, False, 
+                                    metric)
+                    logging.debug('failure in test %s: %0.1f' % (test, metric))
+                else:
+                    logging.error('Bad failure message: %s' % line)
             elif 'PEP TEST-PASS' in line:
                 parts = [x.strip() for x in line.split('|')]
-                testname = parts[1]
-                if not buildos in self.passes:
-                    self.passes[buildos] = {}
-                if not testname in self.passes[buildos]:
-                    self.passes[buildos][testname] = []
-                self.passes[buildos][testname].append(self.timestamp_from_buildid(buildid))
-        for testname, times in unresp_times.iteritems():
-            if not testname in self.info['test']:
-                self.info['test'].append(testname)
-            if not buildos in self.failures:
-                self.failures[buildos] = {}
-            if not testname in self.failures[buildos]:
-                self.failures[buildos][testname] = []
-            self.failures[buildos][testname].append([self.timestamp_from_buildid(buildid), sum([x*x/1000.0 for x in times])])
-        if not buildos in self.info['platform']:
-            self.info['platform'].append(buildos)
-        file(self.results_filename, 'w').write(json.dumps({
-                    'passes': self.passes,
-                    'failures': self.failures,
-                    'info': self.info }))
+                test = parts[1]
+                self.add_result(branch, platform, test, buildid, True)
+                logging.debug('pass in test %s' % test)
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     logs_dir = 'logs'
-    lp = LogParser()
+    lp = LogParser('peptest', 'peptest', 'peptest')
     for f in os.listdir(logs_dir):
         filename = os.path.join(logs_dir, f) 
         lp.parse_log(filename)
