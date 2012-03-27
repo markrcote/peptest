@@ -42,7 +42,8 @@ function getDataPoints(params, data) {
     return x;
   });
   points.sort(function(a, b) { return a.builddate - b.builddate; });
-  var firstPoint = points[0].date, lastPoint = points[points.length-1].date;
+  var firstPoint = points.length ? points[0].date : null;
+  var lastPoint = points.length ? points[points.length-1].date : null;
   var failurePoints = points.filter(function(x) { return !x.pass; })
                             .map(function(x) { return [x.builddate, x.metric]; });
   var passPoints = points.filter(function(x) { return x.pass; })
