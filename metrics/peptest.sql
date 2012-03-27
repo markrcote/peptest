@@ -1,19 +1,19 @@
 CREATE TABLE branch (
     id INT AUTO_INCREMENT,
     PRIMARY KEY (id),
-    branch_name VARCHAR(255) COLLATE utf8_bin
+    name VARCHAR(255) COLLATE utf8_bin
 );
 
 CREATE TABLE platform (
     id INT AUTO_INCREMENT,
     PRIMARY KEY (id),
-    platform_name VARCHAR(255) COLLATE utf8_bin
+    name VARCHAR(255) COLLATE utf8_bin
 );
 
 CREATE TABLE test (
     id INT AUTO_INCREMENT,
     PRIMARY KEY (id),
-    test_name VARCHAR(255) COLLATE utf8_bin
+    name VARCHAR(255) COLLATE utf8_bin
 );
 
 CREATE TABLE result (
