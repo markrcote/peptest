@@ -53,7 +53,7 @@ class Results(object):
             # 2012-01-02.
             vars['end'] = datetime.datetime.strptime(args['end'][0], '%Y-%m-%d').date() + datetime.timedelta(days=1)
 
-        query = 'select builddate, pass, metric, test.name as test_name, platform.name as platform_name, branch.name as branch_name from result inner join test on result.test_id = test.id inner join branch on result.branch_id = branch.id inner join platform on result.platform_id = platform.id'
+        query = 'select builddate, revision, pass, metric, test.name as test_name, platform.name as platform_name, branch.name as branch_name from result inner join test on result.test_id = test.id inner join branch on result.branch_id = branch.id inner join platform on result.platform_id = platform.id'
         if wheres:
             query += ' where %s' % ' and '.join(wheres)
         results = db.query(query, vars=vars)

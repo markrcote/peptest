@@ -34,12 +34,16 @@ function onlineVariance(times) {
   return { mean: mean, stddev: Math.sqrt(variance) };
 }
 
-function getDataPoints(params, data) {
+function getDataPoints(data) {
   // set end date ahead one day so that we get all results from the given
   // day (since no time implies midnight, the very beginning of the day).
   var points = data.map(function(x) {
     x.builddate = new Date(x.builddate).getTime();
     return x;
+  });
+  var revisions = {};
+  data.forEach(function(x) {
+    revisions[x.builddate] = x.revision;
   });
   points.sort(function(a, b) { return a.builddate - b.builddate; });
   var firstPoint = points.length ? points[0].date : null;
@@ -51,12 +55,13 @@ function getDataPoints(params, data) {
   return { failures: failurePoints,
            passes: passPoints,
            firstPoint: firstPoint,
-           lastPoint: lastPoint };
+           lastPoint: lastPoint,
+           revisions: revisions };
 }
 
 function makePlot(params, data) {
   $('#plot').html();
-  var points = getDataPoints(params, data);
+  var points = getDataPoints(data);
   if (!points.failures.length && !points.passes.length) {
     $('#plot').html(ich.nodata());
     return;
@@ -81,7 +86,7 @@ function makePlot(params, data) {
     passSeriesIndex = series.length - 1;
   }
   colour++;
-  if (points.failures.length) {
+  if (points.failures.length > 1) {
     var windowLength = parseInt($('#meanwindow').attr('value'));
     var mean = [], stddev_pos = [], stddev_neg = [], window = [], faildata;
     if (!windowLength) {
@@ -116,14 +121,20 @@ function makePlot(params, data) {
     series.push({ data: mean,
                   label: 'mean failure',
                   color: colour,
-                  points: { show: false }, lines: { show: true } });
+                  points: { show: false },
+                  lines: { show: true },
+                  hoverable: false });
     series.push({ data: stddev_pos,
                   label: 'failure std dev',
                   color: ++colour,
-                  points: { show: false }, lines: { show: true } });
+                  points: { show: false },
+                  lines: { show: true },
+                  hoverable: false });
     series.push({ data: stddev_neg,
                   color: colour,
-                  points: { show: false }, lines: { show: true } });
+                  points: { show: false },
+                  lines: { show: true },
+                  hoverable: false });
   }
   var yaxisLabel = 'sum of squares of unresponsive times in ms / 1000';
   $.plot($('#plot'), series, {
@@ -135,14 +146,18 @@ function makePlot(params, data) {
 
   $('#plot').bind('plothover',
     plotHover($('#plot'), function (item) {
-      var x = item.datapoint[0].toFixed(2);
       var y;
       if (item.seriesIndex === failSeriesIndex) {
-        y = Math.ceil(item.datapoint[1]);
+        y = item.datapoint[1];
       } else if (item.seriesIndex === passSeriesIndex) {
         y = 'pass';
       }
-      showLineTooltip(item.pageX, item.pageY, x, y);
+      showLineTooltip(item.pageX,
+                      item.pageY,
+                      item.datapoint[0],
+                      params.branch,
+                      points.revisions[item.datapoint[0]],
+                      y);
     })
   );
 }

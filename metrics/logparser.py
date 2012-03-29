@@ -20,7 +20,8 @@ class LogParser(object):
     def timestamp_from_buildid(self, buildid):
         return int(time.mktime(datetime.datetime.strptime(buildid, '%Y%m%d%H%M%S').timetuple()))
 
-    def add_result(self, branch, platform, test, buildid, is_pass, metric=0):
+    def add_result(self, branch, platform, test, buildid, revision, is_pass,
+                   metric=0):
         c = self.db.cursor()
         if branch not in self.branches:
             c.execute('insert into branch (name) values (%s)', [branch])
@@ -31,11 +32,12 @@ class LogParser(object):
         if test not in self.tests:
             c.execute('insert into test (name) values (%s)', [test])
             self.tests[test] = c.lastrowid
-        c.execute('insert into result (branch_id, platform_id, test_id, builddate, pass, metric) values (%s, %s, %s, %s, %s, %s)',
+        c.execute('insert into result (branch_id, platform_id, test_id, builddate, revision, pass, metric) values (%s, %s, %s, %s, %s, %s, %s)',
                   (self.branches[branch],
                    self.platforms[platform],
                    self.tests[test],
                    datetime.datetime.strptime(buildid, '%Y%m%d%H%M%S'),
+                   revision,
                    int(is_pass),
                    metric))
         self.db.commit()
@@ -52,7 +54,7 @@ class LogParser(object):
             for id, name in c.fetchall():
                 d[name] = id
 
-    def parse_log(self, filename, buildid=''):
+    def parse_log(self, filename, buildid='', revision=''):
         logging.debug('parsing %s' % filename)
         self.build_cache()
         m = re.match('([^_]+)_(.+)_test', os.path.basename(filename))
@@ -71,15 +73,15 @@ class LogParser(object):
                 m = re.search('metric: ([\d\.]*)', parts[2])
                 if m:
                     metric = float(m.group(1))
-                    self.add_result(branch, platform, test, buildid, False, 
-                                    metric)
+                    self.add_result(branch, platform, test, buildid, revision,
+                                    False, metric)
                     logging.debug('failure in test %s: %0.1f' % (test, metric))
                 else:
                     logging.error('Bad failure message: %s' % line)
             elif 'PEP TEST-PASS' in line:
                 parts = [x.strip() for x in line.split('|')]
                 test = parts[1]
-                self.add_result(branch, platform, test, buildid, True)
+                self.add_result(branch, platform, test, buildid, revision, True)
                 logging.debug('pass in test %s' % test)
 
 if __name__ == '__main__':

@@ -26,6 +26,7 @@ CREATE TABLE result (
     test_id INT,
     FOREIGN KEY (test_id) REFERENCES test(id),
     builddate DATETIME,
+    revision VARCHAR(12) COLLATE utf8_bin,
     pass SMALLINT,
     metric FLOAT DEFAULT 0
 );

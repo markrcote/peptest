@@ -43,7 +43,7 @@ class Collector(object):
             log_path = os.path.join(self.logs_dir, os.path.basename(url))
             urllib.urlretrieve(url, log_path)
             logging.debug('parsing...')
-            self.lp.parse_log(log_path, buildid)
+            self.lp.parse_log(log_path, buildid, data['revision'])
             logging.debug('cleaning up...')
             os.unlink(log_path)
         self.l.release()

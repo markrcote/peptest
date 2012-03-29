@@ -13,10 +13,26 @@ function dateStr(d) {
 }
 
 
-function showLineTooltip(x, y, timestamp, value) {
-  var date = new Date(Math.floor(timestamp));
-  var content = ich.flot_tooltip({ date: dateStr(date),
-                                   value: value });
+function showLineTooltip(x, y, timestamp, branch, revision, value) {
+  var params = {
+    date: dateStr(new Date(timestamp)),
+    value: value
+  };
+  var content;
+  if (revision) {
+    params.revision = revision;
+    if (branch == 'mozilla-inbound') {
+      params.url = 'https://hg.mozilla.org/integration/mozilla-inbound/rev/';
+    } else if (branch == 'mozilla-central') {
+      params.url = 'https://hg.mozilla.org/mozilla-central/rev/';
+    } else if (branch == 'try') {
+      params.url = 'https://hg.mozilla.org/try/rev/';
+    }
+    params.url += revision;
+    content = ich.flot_tooltip(params);
+  } else {
+    content = ich.flot_tooltip_norev(params);
+  }
   $(content).css({
     top: y + 5,
     left: x + 5
